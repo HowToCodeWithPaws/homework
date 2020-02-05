@@ -20,12 +20,15 @@ namespace HW16
 	public class Calculator
 	{
 		// Поле для события - уведомления об ошибке.
-		public event ErrorNotificationType ErrorNotification;
+		public static event ErrorNotificationType ErrorNotification;
 
 		public static double Calculate(string expr)
 		{
 			string[] args = expr.Split(' ');
 
+			// Парсинг с проверкой на переполнение.
+			// Обработка исключений с помощью оператора try-catch,
+			// вызываюшего событие.
 			try
 			{
 				double operandA = double.Parse(args[0]);
@@ -34,7 +37,8 @@ namespace HW16
 
 				return Program.operations[operationExp](operandA, operandB);
 			}
-			catch (Exception) { throw; }
+			catch (FormatException e) { ErrorNotification(e.Message); return 0; }
+			catch (Exception e) { ErrorNotification(e.Message); return 0; }
 		}
 	}
 
@@ -61,11 +65,11 @@ namespace HW16
 		static Program()
 		{
 			operations = new Dictionary<string, MathOperation>();
-			operations.Add("+", (x, y) => { return x + y; });
-			operations.Add("-", (x, y) => { return x - y; });
-			operations.Add("*", (x, y) => { return x * y; });
-			operations.Add("/", (x, y) => { return x / y; });
-			operations.Add("^", (x, y) => { return Math.Pow(x, y); });
+			operations.Add("+", (x, y) => { return checked(x + y); });
+			operations.Add("-", (x, y) => { return checked(x - y); });
+			operations.Add("*", (x, y) => { return checked(x * y); });
+			operations.Add("/", (x, y) => { return checked(x / y); });
+			operations.Add("^", (x, y) => { return checked(Math.Pow(x, y)); });
 		}
 
 		/// <summary>
@@ -93,7 +97,7 @@ namespace HW16
 					}
 					catch (Exception)
 					{
-						Console.WriteLine("Неверный формат данных");
+						Console.WriteLine("что-то пошло не так");
 					}
 
 				Console.WriteLine("first task finished");
@@ -178,7 +182,7 @@ namespace HW16
 				}
 				catch (Exception)
 				{
-					Console.WriteLine("Неверный формат данных");
+					Console.WriteLine("что-то пошло не так");
 				}
 
 				Console.WriteLine("second task finished");
