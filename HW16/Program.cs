@@ -22,28 +22,6 @@ namespace HW16
 		// Поле для события - уведомления об ошибке.
 		public static event ErrorNotificationType ErrorNotification;
 
-		public static double Calculate(string expr)
-		{
-			string[] args = expr.Split(' ');
-
-			// Парсинг с проверкой на переполнение.
-			// Обработка исключений с помощью оператора try-catch,
-			// вызываюшего событие.
-			try
-			{
-				double operandA = double.Parse(args[0]);
-				string operationExp = args[1];
-				double operandB = double.Parse(args[2]);
-
-				return Program.operations[operationExp](operandA, operandB);
-			}
-			catch (FormatException e) { ErrorNotification(e.Message); return 0; }
-			catch (Exception e) { ErrorNotification(e.Message); return 0; }
-		}
-	}
-
-	class Program
-	{
 		/// <summary>
 		/// Тип делегата, принимающего два вещественных числа 
 		/// и возвращающего вещественное число.
@@ -59,10 +37,10 @@ namespace HW16
 		public static Dictionary<String, MathOperation> operations;
 
 		/// <summary>
-		/// В конструкторе класса Program происходит инициализация 
+		/// В конструкторе класса Calculator происходит инициализация 
 		/// словаря операциями, записанными через лямбда-выражения.
 		/// </summary>
-		static Program()
+		static Calculator()
 		{
 			operations = new Dictionary<string, MathOperation>();
 			operations.Add("+", (x, y) => { return checked(x + y); });
@@ -71,6 +49,50 @@ namespace HW16
 			operations.Add("/", (x, y) => { return checked(x / y); });
 			operations.Add("^", (x, y) => { return checked(Math.Pow(x, y)); });
 		}
+
+		/// <summary>
+		/// Метод, в котором происходит парсинг выражений и вызов вычислений.
+		/// </summary>
+		/// <param name="expr"> Принимает на вход строку с выражением. </param>
+		/// <returns> Возвращает вещественное число. </returns>
+		public static double Calculate(string expr)
+		{
+			string[] args = expr.Split(' ');
+
+			// Парсинг с проверкой на переполнение.
+			// Обработка исключений с помощью оператора try-catch,
+			// вызываюшего событие.
+			try
+			{
+				double operandA = double.Parse(args[0]);
+				string operationExp = args[1];
+				double operandB = double.Parse(args[2]);
+
+				// Выбрасываем свое исключение для делания на 0.
+				if (operationExp == "/" && operandB == 0)
+				{
+					throw new Exception("Произошла попытка деления на 0.");
+				}
+
+				// Выбрасываем свое исключение для случая, когда результат - не число.
+				double result = Math.Round(operations[operationExp](operandA, operandB), 3);
+				if (double.IsNaN(result))
+				{
+					throw new Exception("Выражение не является числом.");
+				}
+
+				return result;
+			}
+			catch (Exception e) { ErrorNotification(e.Message); throw; }
+		}
+	}
+
+	class Program
+	{
+		/// <summary>
+		/// StringBuilder для сохранения ответов.
+		/// </summary>
+		public static StringBuilder answers = new StringBuilder();
 
 		/// <summary>
 		/// Метод, считывающий выражения из файла, вызывающий метод
@@ -87,18 +109,19 @@ namespace HW16
 				string[] expressions =
 					File.ReadAllLines("../../../expressions.txt");
 
-				File.WriteAllText("../../../answers.txt", "");
-
+				// Вызов метода Calculate с дописыванием результата его работы в StringBuilder.
 				foreach (string expr in expressions)
 					try
 					{
-						File.AppendAllText("../../../answers.txt",
-							$"{Calculator.Calculate(expr):f3}\n");
+						answers.Append($"{Calculator.Calculate(expr):f3}\n");
 					}
 					catch (Exception)
 					{
-						Console.WriteLine("что-то пошло не так");
+						// Это странный костыль, но по-другому как-то не работает.
+						continue;
 					}
+
+				File.WriteAllText("../../../answers.txt", answers + Environment.NewLine);
 
 				Console.WriteLine("first task finished");
 			}
@@ -136,13 +159,14 @@ namespace HW16
 		/// <param name="errors"> Количество ошибок. </param>
 		/// <returns> Метод возвращает строку с результатом 
 		/// проверки. </returns>
-		public static string Checker(double left, double right,
+		public static string Checker(string left, string right,
 			ref int errors)
 		{
 			if (left == right) { return "OK"; }
 			else
 			{
 				errors++;
+				Console.WriteLine($"Ошибка:{left} != {right}");
 			}
 			return "Error";
 		}
@@ -159,31 +183,22 @@ namespace HW16
 			try
 			{
 				int errors = 0;
-				string[] expressions = 
+
+				string[] expressions =
 					File.ReadAllLines("../../../expressions_checker.txt");
-				string[] answers = 
+
+				string[] answers =
 					File.ReadAllLines("../../../answers.txt");
 
-				File.WriteAllText("../../../results.txt", "");
-				try
+				StringBuilder results = new StringBuilder();
+
+				for (int i = 0; i < expressions.Length; i++)
 				{
-					for (int i = 0; i < expressions.Length; i++)
-					{
-
-						double left = double.Parse(expressions[i]);
-						double right = double.Parse(answers[i]);
-
-						File.AppendAllText("../../../results.txt",
-							$"{Checker(left, right, ref errors)}\n");
-					}
-
-					File.AppendAllText("../../../results.txt",
-					$"Ошибок: {errors}");
+					results.Append($"{Checker(expressions[i], answers[i], ref errors)}\n");
 				}
-				catch (Exception)
-				{
-					Console.WriteLine("что-то пошло не так");
-				}
+
+				File.WriteAllText("../../../results.txt",
+					results + Environment.NewLine + $"Ошибок: {errors}");
 
 				Console.WriteLine("second task finished");
 			}
@@ -208,16 +223,65 @@ namespace HW16
 				Console.WriteLine("Ошибка безопасности"
 					+ Environment.NewLine + e);
 			}
+			catch (Exception)
+			{
+				Console.WriteLine("что-то пошло не так");
+			}
+		}
+
+		/// <summary>
+		/// Метод, выводящий на консоль сообщение об исключительной
+		/// ситуации, включая время поимки исключения.
+		/// </summary>
+		/// <param name="message"> Принимает на вход строку с сообщением. </param>
+		public static void ConsoleErrorHandler(string message)
+		{
+			Console.WriteLine(message + " " + DateTime.Now);
+		}
+
+		/// <summary>
+		/// Метод реагирования на событие, добавляет сообщение в String Builder.
+		/// Альтернативно можно было бы сразу писать в файл или в обычную строку.
+		/// </summary>
+		/// <param name="message"> Принимает на вход строку с сообщением исключений, 
+		/// по которой дифференцирует обработку. </param>
+		public static void ResultErrorHandler(string message)
+		{
+			switch (message)
+			{
+				case "Выражение не является числом.":
+					answers.Append("не число\n");
+					return;
+
+				case "Значение было недопустимо малым или " +
+					"недопустимо большим для Double.":
+					answers.Append("∞\n");
+					return;
+
+				case "Данный ключ отсутствует в словаре.":
+					answers.Append("неверный оператор\n");
+					return;
+
+				case "Произошла попытка деления на 0.":
+					answers.Append("bruh\n");
+					return;
+			}
 		}
 
 		/// <summary>
 		/// Метод с повтором решения и вызовом двух методов для 
 		/// двух частей задания.
+		/// Подписка методов на событие.
+		/// Удивительно, но все работает.
 		/// </summary>
 		static void Main()
 		{
 			do
 			{
+				// Подписка методов на событие.
+				Calculator.ErrorNotification += ConsoleErrorHandler;
+				Calculator.ErrorNotification += ResultErrorHandler;
+
 				FirstTask();
 
 				SecondTask();
