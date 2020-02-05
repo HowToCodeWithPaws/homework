@@ -8,11 +8,20 @@ using System.IO;
 namespace HW16
 {
 	/// <summary>
+	/// Созданный тип делегата, относящегося к уведомлении об ошибках.
+	/// </summary>
+	/// <param name="message"> Принимает на вход строку - сообщение. </param>
+	public delegate void ErrorNotificationType(string message);
+
+	/// <summary>
 	/// Класс калькулятора с методом преобразования выражения 
 	/// и вызова делегата.
 	/// </summary>
 	public class Calculator
 	{
+		// Поле для события - уведомления об ошибке.
+		public event ErrorNotificationType ErrorNotification;
+
 		public static double Calculate(string expr)
 		{
 			string[] args = expr.Split(' ');
